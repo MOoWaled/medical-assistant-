@@ -1,0 +1,27 @@
+# Web scraping and database
+beautifulsoup4>=4.12.0
+cloudscraper>=1.2.71
+lxml>=5.0.0
+pymongo>=4.6.0
+
+# APIs and user interface
+Flask>=3.1.3
+requests>=2.31.0
+streamlit>=1.45.0
+
+# Preprocessing and logistic-baseline model
+joblib>=1.4.0
+nltk>=3.10.0
+numpy>=1.26.0
+pandas>=2.0.0
+scikit-learn>=1.5.0
+
+# RAG utilities
+faiss-cpu>=1.8.0
+langchain-classic>=1.0.0
+langchain-core>=1.0.0
+sentence-transformers>=3.0.0
+
+# Deep-learning sequence classifiers and their interactive training notebook
+torch>=2.2.0
+jupyterlab>=4.0.0

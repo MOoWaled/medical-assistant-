@@ -1,0 +1,52 @@
+[
+  {
+    "id": "athletes_foot",
+    "expected_condition": "Athlete's foot",
+    "query": "Cracked and peeling skin between the toes with itching, burning and scaling on the sole of my foot."
+  },
+  {
+    "id": "adhd_adults",
+    "expected_condition": "ADHD in adults",
+    "query": "Difficulty concentrating and staying organised, feeling restless and impulsive, and it regularly affects my work."
+  },
+  {
+    "id": "asthma",
+    "expected_condition": "Asthma",
+    "query": "Recurring wheezing, coughing, chest tightness and shortness of breath that gets worse at night."
+  },
+  {
+    "id": "migraine",
+    "expected_condition": "Migraine",
+    "query": "A severe throbbing headache with nausea and sensitivity to light."
+  },
+  {
+    "id": "type_2_diabetes",
+    "expected_condition": "Type 2 diabetes",
+    "query": "Feeling very thirsty, passing urine often, tiredness and unexplained weight loss."
+  },
+  {
+    "id": "atopic_eczema",
+    "expected_condition": "Atopic eczema",
+    "query": "Dry, itchy, cracked and inflamed skin that keeps flaring up."
+  },
+  {
+    "id": "pneumonia",
+    "expected_condition": "Pneumonia",
+    "query": "Cough with fever, chest pain when breathing and breathlessness."
+  },
+  {
+    "id": "wolff_parkinson_white",
+    "expected_condition": "Wolff-Parkinson-White syndrome",
+    "query": "Episodes of a racing or fluttering heartbeat with dizziness and fainting."
+  },
+  {
+    "id": "ocd",
+    "expected_condition": "Obsessive compulsive disorder (OCD)",
+    "query": "Unwanted distressing thoughts and repeated checking or washing rituals."
+  },
+  {
+    "id": "depression",
+    "expected_condition": "Depression",
+    "query": "Persistent low mood, loss of interest, hopelessness and low energy."
+  }
+]

@@ -1,0 +1,11 @@
+case_id,expected_condition,prompt,focus
+athletes_foot, Athlete's foot,"Itchy dry flaky rash between my toes with cracked skin, burning, blisters and scaling on the sole of my foot.",Dermatology
+asthma,Asthma,"I have wheezing, chest tightness and shortness of breath that is often worse at night.",Respiratory
+appendicitis,Appendicitis,"Pain started in the middle of my abdomen then moved to the lower right side. Walking makes it worse and I feel sick and feverish.",Acute abdominal
+chickenpox,Chickenpox,"Clusters of itchy red spots became fluid-filled blisters and are now crusting into scabs.",Infectious disease
+food_poisoning,Food poisoning,"After eating contaminated food I developed vomiting, diarrhoea, stomach cramps, weakness and a fever.",Gastrointestinal
+gad,Generalised anxiety disorder (GAD),"I feel constantly on edge and worried, cannot concentrate or sleep, and have palpitations and muscle tension.",Mental health
+heart_attack,Heart attack,"I have chest discomfort with shortness of breath, nausea, lightheadedness and cold sweats.",Cardiovascular
+migraine,Migraine,"I have a severe one-sided headache with nausea and sensitivity to light and sound.",Neurology
+type_2_diabetes,Type 2 diabetes,"I am very thirsty, urinate often at night, feel tired, lost weight without trying and cuts heal slowly.",Endocrinology
+adhd_adults,ADHD in adults,"you'll experience these symptoms in a way that negatively impacts your life on a regular basis. For example, it might hold you back from progressing in education or work.",ADHD regression
