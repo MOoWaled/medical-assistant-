@@ -21,5 +21,4 @@ def preprocess():
     })
 
 if __name__ == '__main__':
-    # تشغيل الـ API على Port مختلف لكي لا يتصادم مع باقي الـ APIs (مثلاً Port 5001)
     app.run(host='0.0.0.0', port=5001, debug=True)

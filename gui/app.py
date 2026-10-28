@@ -254,7 +254,12 @@ with st.sidebar:
         f'<p class="sidebar-title">🩺 Analysis settings</p><p class="sidebar-copy">{sidebar_copy}</p>',
         unsafe_allow_html=True,
     )
-    available_models = ("Grounded FAISS Baseline", "Deep Learning (RNN)", "Deep Learning (LSTM)")
+    available_models = (
+        "Grounded FAISS Baseline",
+        "Logistic Regression",
+        "Deep Learning (RNN)",
+        "Deep Learning (LSTM)",
+    )
     if not local_models_only:
         available_models += ("Mistral", "Qwen")
     model_label = st.selectbox(
@@ -324,6 +329,7 @@ if submit:
 
     selected_model = {
         "Grounded FAISS Baseline": "logistic_baseline",
+        "Logistic Regression": "notebook_logistic_regression",
         "Deep Learning (RNN)": "deep_rnn",
         "Deep Learning (LSTM)": "deep_lstm",
         "Mistral": "mistral",
@@ -353,7 +359,12 @@ if submit:
         st.caption(f"Model confidence: {confidence}%")
 
     training_metrics = result.get("training_metrics") or {}
-    if training_metrics:
+    if result.get("selection_mode") == "logistic_reranked_rag":
+        st.caption(
+            "Notebook Logistic Regression ranks the retrieved local candidates. "
+            "Its full-dataset fit is not presented as clinical accuracy."
+        )
+    elif training_metrics:
         st.caption(
             "Checkpoint held-out chunk metrics — "
             f"Top-1: {training_metrics.get('held_out_chunk_top_1', 0):.1%}, "

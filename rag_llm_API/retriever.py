@@ -119,7 +119,7 @@ class ConditionRetriever:
 
 
 class TfidfFaissRetriever:
-    """Offline FAISS retriever fitted only on the dataset's symptom field."""
+    """Offline hybrid retriever fitted only on source symptom representations."""
 
     def __init__(self) -> None:
         if not TFIDF_ARTIFACT_PATH.exists():
@@ -130,6 +130,8 @@ class TfidfFaissRetriever:
         self.vectorizer = artifact["vectorizer"]
         self.records: list[dict[str, Any]] = artifact["records"]
         self.symptom_matrix = artifact["symptom_matrix"]
+        self.char_vectorizer = artifact.get("char_vectorizer")
+        self.char_symptom_matrix = artifact.get("char_symptom_matrix")
         self.index = faiss.read_index(str(TFIDF_FAISS_INDEX_PATH)) if TFIDF_FAISS_INDEX_PATH.exists() else None
         if self.index is not None and self.index.ntotal != len(self.records):
             raise RuntimeError("Local TF-IDF FAISS index and records have different counts. Rebuild the baseline.")
@@ -139,17 +141,36 @@ class TfidfFaissRetriever:
         if not query:
             return []
         query_sparse = self.vectorizer.transform([query])
+        use_hybrid = self.char_vectorizer is not None and self.char_symptom_matrix is not None
         if self.index is not None:
             vector = query_sparse.astype(np.float32).toarray()
             faiss.normalize_L2(vector)
-            scores, indexes = self.index.search(vector, min(top_k, self.index.ntotal))
+            # Hybrid scoring needs both components for every small local record;
+            # the final response is still truncated to ``top_k`` below.
+            search_size = self.index.ntotal if use_hybrid else min(top_k, self.index.ntotal)
+            scores, indexes = self.index.search(vector, search_size)
             ranked = zip(indexes[0], scores[0], strict=True)
         else:
             # The batch launcher normally creates the FAISS binary. Keep a read-only
             # sparse fallback so an existing local artifact remains usable if it cannot.
             sparse_scores = (self.symptom_matrix @ query_sparse.T).toarray().ravel()
-            top_indexes = np.argsort(sparse_scores)[-top_k:][::-1]
+            result_count = len(sparse_scores) if use_hybrid else top_k
+            top_indexes = np.argsort(sparse_scores)[-result_count:][::-1]
             ranked = ((int(index), float(sparse_scores[index])) for index in top_indexes)
+        word_scores = {int(index): float(score) for index, score in ranked}
+
+        if use_hybrid:
+            char_query = self.char_vectorizer.transform([query])
+            char_scores = (self.char_symptom_matrix @ char_query.T).toarray().ravel()
+            # Word tokens preserve medical terms; character n-grams make the
+            # retriever resilient to spelling variants and short symptom phrases.
+            combined_scores = {
+                index: 0.8 * word_scores.get(index, 0.0) + 0.2 * float(char_scores[index])
+                for index in range(len(self.records))
+            }
+            ranked = sorted(combined_scores.items(), key=lambda item: item[1], reverse=True)[:top_k]
+        else:
+            ranked = sorted(word_scores.items(), key=lambda item: item[1], reverse=True)[:top_k]
         candidates = []
         for index, score in ranked:
             record = self.records[int(index)]

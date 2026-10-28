@@ -24,6 +24,7 @@ sys.path.insert(0, str(ROOT_DIR))
 
 from rag_llm_API.retriever import get_retriever, grounded_result, match_candidate
 from model_API.deep_learning_inference import DeepLearningModelUnavailable, predict as predict_deep_model
+from model_API.logistic_regression_notebook import LogisticNotebookModelUnavailable, predict as predict_notebook_logistic
 from model_API.train_baseline import ARTIFACT_PATH, train
 
 
@@ -116,6 +117,28 @@ def _deep_prediction(text: str, model_name: str) -> dict:
     return result
 
 
+def _notebook_logistic_prediction(text: str) -> dict:
+    """Use the notebook Logistic Regression model to rank only RAG candidates."""
+    retriever = get_retriever()
+    rag_candidates = retriever.search(text, top_k=8)
+    if not rag_candidates:
+        raise LogisticNotebookModelUnavailable("No matching condition was retrieved from the local RAG knowledge base.")
+    prediction = predict_notebook_logistic(
+        text,
+        allowed_conditions=[candidate["condition"] for candidate in rag_candidates],
+    )
+    selected = match_candidate(prediction["condition"], rag_candidates)
+    if selected is None:
+        raise LogisticNotebookModelUnavailable("The Logistic Regression selection was not present in local RAG candidates.")
+    result = grounded_result(selected, candidates=rag_candidates)
+    # This value is conditional within a retrieved shortlist, not diagnostic confidence.
+    result["confidence"] = round(prediction["confidence"] * 100, 2)
+    result["model_candidates"] = prediction["candidates"]
+    result["selection_mode"] = "logistic_reranked_rag"
+    result["training_metrics"] = prediction["training_metrics"]
+    return result
+
+
 @app.get("/health")
 def health_check():
     return jsonify(
@@ -152,6 +175,40 @@ def predict_disease():
             "metadata_note": (
                 "Age and gender are optional request context. The baseline retrieves only from the local "
                 "knowledge base, which does not currently contain demographic eligibility fields."
+            ),
+        }
+    )
+
+
+@app.post("/predict/logistic-regression")
+def predict_with_notebook_logistic_regression():
+    data = request.get_json(silent=True) or {}
+    text = str(data.get("text", "")).strip()
+    if not text:
+        return jsonify({"error": "Please provide non-empty text in the JSON body."}), 400
+    try:
+        patient_context = _patient_context(data)
+        result = _notebook_logistic_prediction(text)
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+    except LogisticNotebookModelUnavailable as error:
+        return jsonify({"error": str(error)}), 409
+    details = {key: result[key] for key in ("condition", "symptoms", "causes", "warnings", "recommendations")}
+    return jsonify(
+        {
+            "status": "success",
+            "model_name": "notebook_logistic_regression",
+            "predicted_condition": result["condition"],
+            "confidence": result["confidence"],
+            "medical_details": details,
+            "retrieval_candidates": result["retrieval_candidates"],
+            "model_candidates": result["model_candidates"],
+            "training_metrics": result["training_metrics"],
+            "selection_mode": result["selection_mode"],
+            "patient_context": patient_context,
+            "metadata_note": (
+                "The Logistic Regression model from baseline_model.ipynb ranks only local RAG candidates. "
+                "Displayed medical fields always come from the local knowledge base."
             ),
         }
     )

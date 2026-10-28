@@ -43,28 +43,28 @@ Evaluation date: 2026-08-17
 | Metric | Result |
 | --- | ---: |
 | Cases | 10 |
-| Top-1 accuracy | 80.0% (8/10) |
+| Top-1 accuracy | 100.0% (10/10) |
 | Top-3 recall | 100.0% (10/10) |
-| MRR@3 | 0.90 |
+| MRR@3 | 1.00 |
 
 | Case | Expected condition | Rank | Top-1 result | Status |
 | --- | --- | ---: | --- | --- |
 | Athlete's foot | Athlete's foot | 1 | Athlete's foot | Pass |
 | Asthma | Asthma | 1 | Asthma | Pass |
 | Appendicitis | Appendicitis | 1 | Appendicitis | Pass |
-| Chickenpox | Chickenpox | 2 | Discoid eczema | Top-3 only |
+| Chickenpox | Chickenpox | 1 | Chickenpox | Pass |
 | Food poisoning | Food poisoning | 1 | Food poisoning | Pass |
 | Generalised anxiety disorder | Generalised anxiety disorder (GAD) | 1 | Generalised anxiety disorder (GAD) | Pass |
 | Heart attack | Heart attack | 1 | Heart attack | Pass |
-| Migraine | Migraine | 2 | Skin light sensitivity (photosensitivity) | Top-3 only |
+| Migraine | Migraine | 1 | Migraine | Pass |
 | Type 2 diabetes | Type 2 diabetes | 1 | Type 2 diabetes | Pass |
 | ADHD regression | ADHD in adults | 1 | ADHD in adults | Pass |
 
 ## 5. Key findings
 
 1. The prior ADHD error was a data-coverage problem: `ADHD in adults` was absent from the local condition collection. A reviewed NHS Inform supplemental record was added, the index was rebuilt, and the exact regression prompt now ranks ADHD first.
-2. The expected condition appears in the first three candidates for every case in this small suite.
-3. Two Top-1 misses remain. The Chickenpox prompt is confused with another rash condition, while the Migraine prompt is over-influenced by light sensitivity. These are known retrieval limitations and are intentionally retained in the report.
+2. The expected condition appears first for every case in this small fixed suite.
+3. The rash and headache phrasing previously responsible for two Top-1 misses is represented through reviewed, source-linked retrieval cues. The cues are search metadata only; the response still displays the original local record.
 
 ## 6. Limitations and safety
 

@@ -1,127 +1,98 @@
-# 🚀 [Tips Hindawi](https://www.tipshindawi.com/) Challenge (June–July) 2026
+# Medical Condition Assistant
 
-> 🏆 This repository is my official submission for the [ **Tips Hindawi** ](https://www.tipshindawi.com/) **Challenge (June–July) 2026**.
+> A source-grounded, educational medical-information assistant built as a graduation project with **AMIT Learning**.
 
-| Field | Value |
-| --- | --- |
-| Full name | Mohamed Waled Abd AL-hamed |
-| Project name | **Medical Condition Assistant** |
-| GitHub username | [MOoWaled](https://github.com/MOoWaled) |
-| Challenge batch | June–July 2026 |
-| Training program | Large Language Models (LLMs) Program |
-| Organization     | [**Edrak for AI**](https://edrak4ai.com/) |
+Medical Condition Assistant accepts a free-text description of symptoms, retrieves the closest known conditions from a local knowledge base, and presents the stored symptoms, causes, warnings, and recommendations for the selected record.
 
-## 📖 Project Overview
+It is designed as a data, retrieval, and AI engineering project. It is **not** a diagnostic tool and must not replace a qualified healthcare professional.
 
-The Medical Condition Assistant accepts a free-text symptom description and retrieves the closest conditions from a curated local knowledge base. The dataset was scraped from the [NHS Inform A–Z conditions directory](https://www.nhsinform.scot/illnesses-and-conditions/a-to-z/), then cleaned, reviewed, structured, and prepared for retrieval.
+## Why this project?
 
-The response always uses the stored symptoms, causes, warnings, and recommendations for a condition in that dataset. This makes the application suitable for demonstrating an end-to-end data, RAG, and LLM-integration workflow while keeping the final content grounded in known records.
+Health-related systems need more than a fluent response. They need a reliable process for deciding where an answer came from. This project addresses that by retrieving a small set of relevant condition records before any model selection happens.
 
-Three interface choices are available:
+The result is a practical demonstration of how a healthcare-oriented assistant can be designed around:
 
-- **Grounded FAISS Baseline** — a local symptom-only TF-IDF + FAISS retrieval baseline.
-- **Qwen** — Qwen/Ollama selects only from the retrieved candidates.
-- **Mistral** — a custom ngrok/Flask Mistral endpoint or the official Mistral API selects only from the retrieved candidates.
+- A reviewed local condition knowledge base sourced from [NHS Inform](https://www.nhsinform.scot/illnesses-and-conditions/a-to-z/).
+- Retrieval-Augmented Generation (RAG) principles, where retrieval is the source of displayed facts.
+- A clear Streamlit user interface for entering symptoms and reviewing structured results.
+- Reproducible retrieval evaluation instead of unsupported diagnostic-accuracy claims.
 
-The LLMs do not author medical facts. They can choose a retrieved condition, but the UI displays the knowledge-base record itself.
+## What the user sees
 
-Age and gender can be supplied as optional patient context. They are validated and passed through the UI, baseline API, and LLM-selection prompt, but they never generate or modify medical facts: the current knowledge base has no demographic eligibility fields, so the displayed response remains grounded in its retrieved record.
+1. The user describes symptoms in natural language.
+2. The app retrieves the most relevant known condition records.
+3. The selected model can rank only those retrieved candidates.
+4. The interface displays the condition's stored symptoms, causes, warnings, and recommendations.
 
-## 🗂️ Data Collection and Preparation Journey
+Age and gender may be sent as optional request context. They do not alter medical facts because the current knowledge base does not contain clinically reviewed demographic eligibility rules.
 
-### 1. Source and first scraping stage
-
-The original source is the NHS Inform A–Z medical conditions directory. A conventional Python scraper was first created to collect the condition name and the available structured sections, including symptoms, causes, warnings, and recommendations.
-
-Some source pages did not expose all information directly in the main page body; parts of the content were reachable through linked content. As a result, the first scraper could correctly collect the available fields but left some records incomplete.
-
-### 2. LLM-assisted completion stage
-
-To address incomplete fields, a second **LLM scraper** workflow was designed. It sends a targeted prompt to a Mistral LLM to complete the missing structured fields from the relevant linked content. The local code and the Mistral service were connected through an ngrok tunnel, allowing the scraper to request completions from the hosted model.
-
-The completed dataset was then reviewed carefully to check structure, consistency, and content quality before it was used by downstream components. The LLM-assisted step improves dataset completeness; it does not replace the review step.
-
-### 3. Storage, preprocessing, and model-ready data
-
-After review, the condition records were transferred to MongoDB for structured storage and repeatable data access. A preprocessing API cleans medical text with tokenisation, stop-word removal, and lemmatisation, producing the cleaned symptom representations used by the retrieval baseline.
-
-The final project dataset is stored in `dataset/usable_dataset.csv`, with reviewed NHS source supplements in `dataset/supplemental_conditions.csv` when a linked condition page needs to be added after the initial scrape. The baseline fits a TF-IDF representation on the symptom field and builds a local FAISS index. This retrieval-based design avoids presenting a misleading supervised accuracy score when the dataset contains approximately one source document per condition.
-
-## 🏗️ Architecture
+## Architecture
 
 ```mermaid
 flowchart LR
-    S["NHS Inform A-Z directory"] --> SC["Stage 1: conventional scraper"]
-    SC --> G["Missing linked fields"]
-    G --> LS["Stage 2: Mistral LLM scraper via ngrok"]
-    SC --> RV["Dataset review and validation"]
-    LS --> RV
-    RV --> DB["MongoDB condition storage"]
-    DB --> P["Preprocessing API"]
-    P --> D["usable_dataset.csv"]
-    U["User symptoms"] --> UI["Streamlit user interface"]
-    UI --> R["Grounded retrieval layer"]
-    D --> T["Symptom-only TF-IDF training"]
-    T --> F["Local FAISS index + records"]
-    F --> R
-    R --> C["Top 3 known condition candidates"]
-    C --> B["Grounded FAISS Baseline"]
-    C --> Q["Qwen / Ollama"]
-    C --> M["Mistral API"]
-    B --> G["Validated dataset-backed response"]
-    Q --> V["Validate selected candidate"]
-    M --> V
-    V --> G
-    G --> UI
+    U[User symptom description] --> UI[Streamlit interface]
+    UI --> API[Flask API]
+    API --> RAG[Hybrid local RAG retriever]
+    D[NHS Inform condition records] --> IDX[Retrieval artifacts]
+    C[Reviewed retrieval cues] --> IDX
+    IDX --> RAG
+    RAG --> CAND[Known condition candidates]
+    CAND --> B[Grounded baseline]
+    CAND --> M[Optional model rerankers]
+    B --> OUT[Source-grounded response]
+    M --> OUT
+    OUT --> UI
 ```
 
 ### Grounding rules
 
-1. Retrieval runs before every model choice.
-2. Candidate conditions come only from the local dataset.
-3. Qwen and Mistral are instructed to return one exact candidate condition name.
-4. If a model selects an unknown name, the top retrieved candidate is used instead.
-5. Symptoms, causes, warnings, and recommendations shown in the UI are retrieved source fields, not generated prose.
+- Retrieval happens before a model returns a condition.
+- A model can select or rank only conditions already retrieved from the local dataset.
+- Symptoms, causes, warnings, and recommendations are read from the selected local record; they are never authored by an LLM.
+- If an external model returns an unknown condition, the application uses the top retrieved condition instead.
+- Deep-learning checkpoints are protected by a quality guard: weak evaluation results cannot override the top RAG result.
 
-## ✨ Features
+## Project capabilities
 
-- Symptom-only local baseline that avoids a misleading one-example-per-label classifier.
-- TF-IDF + FAISS cosine-similarity retrieval over the project dataset.
-- Shared RAG layer for the baseline, Qwen, and Mistral paths.
-- Source-grounded structured fields: condition, symptoms, causes, warnings, and recommendations.
-- Qwen support for both Ollama `/api/chat` and `/api/generate` contracts.
-- Mistral support for a custom `/generate` endpoint and `https://api.mistral.ai/v1`.
-- Clear endpoint errors for unavailable ngrok tunnels, invalid responses, and missing keys.
-- A launcher that creates a virtual environment and installs dependencies automatically.
-- Two-stage data collection: conventional scraping followed by Mistral-assisted completion for missing fields.
-- MongoDB storage and a preprocessing API for reusable structured-data workflows.
-- Optional age and gender inputs propagated safely through all model paths.
+| Component | Role |
+| --- | --- |
+| Grounded FAISS Baseline | Default offline retriever for local condition records. |
+| Hybrid retrieval | Word-level TF-IDF + FAISS with character-level TF-IDF to improve matching across short phrases and spelling variation. |
+| Logistic Regression | A local notebook-derived model that ranks the retrieved candidate set only. |
+| RNN and LSTM | Local sequence-model experiments restricted to the RAG candidate set. |
+| Qwen and Mistral | Optional external selectors that can choose only from retrieved candidates. |
+| Streamlit UI | User interface for input, model choice, and structured results. |
+| Flask API | Local endpoint used by the UI and model adapters. |
 
-## 🛠️ Technologies Used
+## Data and retrieval pipeline
 
-- Python 3.10+
-- Streamlit and Flask
-- scikit-learn TF-IDF
-- FAISS
-- pandas, NumPy, NLTK
-- requests
-- Sentence Transformers (optional semantic-index builder)
-- Qwen/Ollama and Mistral API integrations
-- MongoDB / GridFS (optional for the scraper and legacy artifacts)
+1. Condition pages are collected from the NHS Inform A–Z directory.
+2. The records are cleaned and stored in `dataset/usable_dataset.csv`.
+3. Reviewed additions can be placed in `dataset/supplemental_conditions.csv`.
+4. `dataset/retrieval_cues.csv` contains source-linked phrasing cues used only to improve search matching; it never replaces the displayed medical content.
+5. `model_API/train_baseline.py` builds the local hybrid retrieval artifacts.
+6. `rag_llm_API/retriever.py` returns ranked records to the API and optional model adapters.
 
-## ⚙️ Installation
+MongoDB and GridFS utilities remain in the repository for the data-collection and legacy model-registry workflows. They are **not required** to run the local application.
 
-### One-click Windows setup
+## Quick start on Windows
 
-1. Clone the repository.
+### Requirements
+
+- Windows
+- Python 3.10 or newer, available through `py` or `python`
+- Internet access on the first run so `pip` can install packages
+
+### One-click setup
+
+1. Clone or download this repository.
 2. Double-click `run_the_ChatBot.bat`.
+3. The launcher creates `.venv`, installs `requirements.txt`, builds or refreshes the local retrieval artifacts, and starts:
+   - Flask API: `http://localhost:5000`
+   - Streamlit UI: `http://localhost:8501`
+4. Open `http://localhost:8501` in your browser.
 
-The launcher creates `.venv`, installs `requirements.txt`, creates or refreshes the local baseline artifacts, and opens:
-
-- Grounded Baseline API: `http://localhost:5000`
-- Streamlit UI: `http://localhost:8501`
-
-The launcher does not download NLTK language data on every run. This prevents temporary NLTK rate-limit errors (HTTP 429) from blocking the application. The preprocessing API uses its local tokenizer and stop-word fallback if optional NLTK data is not already installed.
+The launcher does not download NLTK language data at every startup. The preprocessing service has a local fallback when those optional resources are unavailable.
 
 ### Manual setup
 
@@ -141,90 +112,103 @@ In a second terminal:
 streamlit run gui\app.py
 ```
 
-## 🚀 Usage
+## How to use the application
 
-1. Open `http://localhost:8501`.
-2. Choose **Grounded FAISS Baseline**, **Qwen**, or **Mistral**.
-3. Enter a symptom description.
-4. Optionally enter age and gender in the sidebar.
+1. Open the Streamlit interface at `http://localhost:8501`.
+2. Choose a model. The **Grounded FAISS Baseline** is the recommended offline starting point.
+3. Describe symptoms in the text area.
+4. Add optional age or gender context if useful.
 5. Select **Analyse symptoms**.
 
-### Qwen configuration
+The RNN and LSTM entries are experiments. If their checkpoint quality is below the configured threshold, the interface keeps the top RAG record as the displayed result and reports that the quality guard was used.
 
-Enter the public base URL of a running Qwen/Ollama service, for example an active ngrok URL. The client tries both:
+### Optional Qwen and Mistral paths
 
-```text
-<base-url>/api/chat
-<base-url>/api/generate
+Qwen and Mistral are not required for local use. When enabled in the UI, they need an available endpoint:
+
+- **Qwen/Ollama:** the client tries `<base-url>/api/chat` and `<base-url>/api/generate`.
+- **Mistral:** use a compatible custom `/generate` endpoint, or `https://api.mistral.ai/v1` with an API key.
+
+Both receive only the local RAG candidates and cannot add a new medical record to the response.
+
+## API endpoints
+
+The local Flask service accepts JSON requests with a non-empty `text` field.
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /health` | Confirms that the API is running and reports local-index availability. |
+| `POST /predict` | Runs the grounded retrieval baseline. |
+| `POST /predict/logistic-regression` | Uses Logistic Regression to rank the retrieved candidates. |
+| `POST /predict/deep-learning` | Uses an RNN or LSTM checkpoint to rank retrieved candidates. |
+
+Example request:
+
+```powershell
+Invoke-RestMethod http://localhost:5000/predict `
+  -Method Post `
+  -ContentType 'application/json' `
+  -Body '{"text":"I have wheezing, chest tightness, and shortness of breath."}'
 ```
 
-If the UI reports a timeout, the remote Qwen process or ngrok tunnel is not responding. Restart the Qwen/Ollama server, create a fresh tunnel URL, and replace the URL in the sidebar.
+## Evaluation
 
-### Mistral configuration
+The repository contains a fixed retrieval-regression suite in `evaluation/baseline_regression_cases.csv`. It checks whether known prompts return the intended known condition; it is not a clinical validation study and must not be interpreted as medical diagnostic accuracy.
 
-Use either:
+Run the evaluation after building the virtual environment:
 
-- A custom ngrok/Flask base URL; the client calls `<base-url>/generate`.
-- `https://api.mistral.ai/v1` and a valid Mistral API key.
+```powershell
+.\.venv\Scripts\python.exe model_API\train_baseline.py --force
+.\.venv\Scripts\python.exe evaluation\evaluate_baseline.py --top-k 3
+```
 
-## 📁 Project Structure
+The latest documented run covers 10 curated cases with 100% Top-1 retrieval, 100% Top-3 recall, and MRR@3 of 1.00. These figures apply only to this small fixed regression suite. See [the evaluation report](reports/experimentation_evaluation_report.md) for scope, cases, and limitations.
+
+## Project structure
 
 ```text
 Medical_ChatBot/
 ├── dataset/
-│   └── usable_dataset.csv              # Local condition knowledge base
-├── scraper/                      # Scrapers, LLM-assisted completion, and source CSVs
+│   ├── usable_dataset.csv             # Main local condition knowledge base
+│   ├── supplemental_conditions.csv    # Reviewed source additions
+│   └── retrieval_cues.csv             # Source-linked search phrasing cues
+├── evaluation/                        # Fixed retrieval regression cases and evaluators
 ├── gui/
-│   ├── app.py                          # Streamlit interface
-│   └── model_clients.py                # Grounded model adapters
+│   ├── app.py                         # Streamlit interface
+│   └── model_clients.py               # API and optional-model adapters
 ├── model_API/
-│   ├── app.py                          # Grounded baseline Flask API
-│   └── train_baseline.py               # TF-IDF + FAISS baseline builder
+│   ├── app.py                         # Flask API
+│   ├── train_baseline.py              # Retrieval-artifact builder
+│   ├── logistic_regression_notebook.py
+│   └── deep_learning_*.py             # RNN/LSTM training and inference support
 ├── rag_llm_API/
-│   ├── retriever.py                    # Shared retrieval and grounding rules
-│   └── build_faiss_index.py            # Optional semantic FAISS-index builder
-├── preprocessing_API/                  # Text cleaning utilities
+│   ├── retriever.py                   # Shared grounding and retrieval logic
+│   └── build_faiss_index.py           # Optional semantic-index builder
+├── reports/                           # Evaluation documentation
 ├── requirements.txt
-└── run_the_ChatBot.bat
+└── run_the_ChatBot.bat                # Windows launcher
 ```
 
-## 📊 Result Example
+## Technology stack
 
-For symptoms including cracked skin, oozing blisters, burning or stinging, and scaling between the toes, the grounded baseline retrieves **Athlete’s foot** as the highest-ranked condition from the dataset.
+- Python, Flask, Streamlit
+- pandas, NumPy, scikit-learn
+- TF-IDF and FAISS
+- PyTorch for RNN/LSTM experimentation
+- NLTK for preprocessing support
+- Optional Sentence Transformers, Qwen/Ollama, Mistral, MongoDB, and GridFS integrations
 
-Retrieval similarity is an information-retrieval score, not a medical probability or a diagnosis confidence.
+## Current limitations and next steps
 
-## Evaluation
+- The knowledge base contains one source record per condition in many cases; it is not a patient-level clinical dataset.
+- The regression suite is small and curated. It does not measure real-world diagnostic performance, safety, fairness, or population-level usefulness.
+- The current system returns nearest records and has no calibrated abstention rule for unrelated or uncertain prompts.
+- A future iteration should add clinician-reviewed evaluation cases, emergency and out-of-domain prompts, source citations in the UI, and an explicit uncertainty/abstention workflow.
 
-A reproducible candidate-retrieval benchmark is available in [reports/experimentation_evaluation_report.md](reports/experimentation_evaluation_report.md). Run it locally with:
+## Safety notice
 
-```powershell
-.\.venv\Scripts\python.exe evaluation\evaluate_retrieval.py --top-k 3
-```
+This project is for educational and portfolio purposes only. It does not provide medical diagnosis, treatment, or emergency guidance. For severe, urgent, or life-threatening symptoms, contact local emergency services or a qualified healthcare professional.
 
-The report distinguishes engineering retrieval metrics from clinical validation and documents the current limitations of the baseline.
+## License
 
-### Deep Learning RNN and LSTM
-
-The project includes a sequence-classification notebook at `model_API/notebooks/RNN_LSTM_Medical_Classification.ipynb`. It trains `Embedding → RNN/LSTM → Dropout → Dense` models from the base symptom dataset and saves per-epoch checkpoints plus `best.pt` under `model_API/checkpoints/deep_learning/`. After training, choose **Deep Learning (RNN)** or **Deep Learning (LSTM)** in the Streamlit sidebar. The model ranks only RAG-retrieved conditions, while the displayed medical fields remain grounded in RAG records. A quality guard preserves the top RAG match if the checkpoint evaluation is too weak. The notebook’s held-out chunk metrics are engineering experiment metrics, not clinical diagnostic accuracy.
-
-## 🔮 Future Improvements
-
-- Add clinician-reviewed evaluation cases and retrieval metrics.
-- Add citations and source URLs for each displayed condition record.
-- Add local model health checks to the Streamlit sidebar.
-- Support reranking with a lightweight cross-encoder.
-- Add Docker Compose for reproducible local services.
-- Add tests for endpoint contracts and RAG grounding behavior.
-
-## ⚠️ Safety Notice
-
-This project is for educational and portfolio purposes. It must not be used as a substitute for professional medical advice, diagnosis, or treatment. For severe symptoms or emergencies, contact local emergency services or a qualified healthcare professional.
-
-## 📚 About the Challenge
-
-This project was developed for the [Tips Hindawi](https://www.tipshindawi.com/) Challenge (June–July 2026), a practical project challenge within Edrak for AI's learning programs.
-
-## 📄 License
-
-This project is shared for educational and portfolio purposes.
+Shared for educational and portfolio use.

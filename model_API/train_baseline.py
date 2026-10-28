@@ -31,6 +31,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 ROOT_DIR = Path(__file__).resolve().parents[1]
 DATASET_PATH = ROOT_DIR / "dataset" / "usable_dataset.csv"
 SUPPLEMENTAL_DATASET_PATH = ROOT_DIR / "dataset" / "supplemental_conditions.csv"
+RETRIEVAL_CUES_PATH = ROOT_DIR / "dataset" / "retrieval_cues.csv"
 ARTIFACT_PATH = Path(__file__).resolve().parent / "artifacts" / "symptom_retrieval_baseline.joblib"
 FAISS_INDEX_PATH = ARTIFACT_PATH.parent / "symptom_tfidf_faiss.bin"
 FAISS_RECORDS_PATH = ARTIFACT_PATH.parent / "symptom_tfidf_records.pkl"
@@ -57,8 +58,28 @@ def _load_records() -> pd.DataFrame:
     return pd.concat(sources, ignore_index=True, sort=False).fillna("")
 
 
+def _load_retrieval_cues() -> dict[str, str]:
+    """Return reviewed, source-linked search phrases keyed by condition name.
+
+    Cues improve matching of common symptom phrasing.  They are used only to
+    build the search representation: displayed medical fields still come from
+    the original condition records.
+    """
+    if not RETRIEVAL_CUES_PATH.exists():
+        return {}
+    cues = pd.read_csv(RETRIEVAL_CUES_PATH).fillna("")
+    required = {"Condition_name", "Retrieval_cues", "source_url"}
+    if not required.issubset(cues.columns):
+        raise ValueError(f"Retrieval cues must contain {sorted(required)}")
+    return {
+        _clean(row.Condition_name).casefold(): _clean(row.Retrieval_cues)
+        for row in cues.itertuples(index=False)
+        if _clean(row.Condition_name) and _clean(row.Retrieval_cues) and _clean(row.source_url)
+    }
+
+
 def train(force: bool = False) -> Path:
-    dataset_hash = _dataset_hash((DATASET_PATH, SUPPLEMENTAL_DATASET_PATH))
+    dataset_hash = _dataset_hash((DATASET_PATH, SUPPLEMENTAL_DATASET_PATH, RETRIEVAL_CUES_PATH))
     if ARTIFACT_PATH.exists() and FAISS_INDEX_PATH.exists() and FAISS_RECORDS_PATH.exists() and not force:
         existing = joblib.load(ARTIFACT_PATH)
         if existing.get("dataset_hash") == dataset_hash:
@@ -81,6 +102,18 @@ def train(force: bool = False) -> Path:
     frame["_condition"] = frame["Condition_name"].map(_clean)
     frame = frame[(frame["_condition"] != "") & (frame["_symptoms"] != "")]
     frame = frame.drop_duplicates(subset=["_condition"], keep="first").reset_index(drop=True)
+    cue_map = _load_retrieval_cues()
+    frame["_retrieval_text"] = frame.apply(
+        lambda row: " ".join(
+            part
+            for part in (
+                row["_symptoms"],
+                cue_map.get(row["_condition"].casefold(), ""),
+            )
+            if part
+        ),
+        axis=1,
+    )
 
     vectorizer = TfidfVectorizer(
         lowercase=True,
@@ -91,7 +124,17 @@ def train(force: bool = False) -> Path:
         sublinear_tf=True,
         norm="l2",
     )
-    symptom_matrix = vectorizer.fit_transform(frame["_symptoms"])
+    symptom_matrix = vectorizer.fit_transform(frame["_retrieval_text"])
+    char_vectorizer = TfidfVectorizer(
+        lowercase=True,
+        strip_accents="unicode",
+        analyzer="char_wb",
+        ngram_range=(3, 5),
+        min_df=1,
+        sublinear_tf=True,
+        norm="l2",
+    )
+    char_symptom_matrix = char_vectorizer.fit_transform(frame["_retrieval_text"])
     records = frame[["_condition", "Symptoms", "Causes", "Warnings", "Recommendations"]].rename(
         columns={"_condition": "Condition_name"}
     ).to_dict(orient="records")
@@ -110,11 +153,14 @@ def train(force: bool = False) -> Path:
             "dataset_hash": dataset_hash,
             "vectorizer": vectorizer,
             "symptom_matrix": symptom_matrix,
+            "char_vectorizer": char_vectorizer,
+            "char_symptom_matrix": char_symptom_matrix,
             "records": records,
             "faiss_index_path": str(FAISS_INDEX_PATH),
             "metrics": {
-                "method": "cosine retrieval over symptom-only records",
+                "method": "hybrid word and character TF-IDF cosine retrieval over symptom-only records",
                 "training_rows": len(records),
+                "reviewed_retrieval_cues": len(cue_map),
                 "note": "No train/test score is reported because each condition has one source record; a label split would be misleading.",
             },
         },

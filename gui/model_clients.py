@@ -40,6 +40,8 @@ def analyse_symptoms(
     """Retrieve first, then let a provider select only from the known candidates."""
     if model == "logistic_baseline":
         return _call_baseline(symptoms, baseline_url, age=age, gender=gender)
+    if model == "notebook_logistic_regression":
+        return _call_notebook_logistic_regression(symptoms, baseline_url, age=age, gender=gender)
     if model in {"deep_rnn", "deep_lstm"}:
         return _call_deep_learning(
             symptoms,
@@ -135,6 +137,36 @@ def _call_deep_learning(
     payload = _json_response(response, "Deep Learning")
     if response.status_code >= 400:
         raise ModelRequestError(_error_message(payload, response, "Deep Learning"))
+    details = payload.get("medical_details") or {}
+    return {
+        "condition": str(details.get("condition") or payload.get("predicted_condition") or "Not available"),
+        "symptoms": str(details.get("symptoms") or symptoms),
+        "causes": str(details.get("causes") or "Not available"),
+        "warnings": str(details.get("warnings") or "Not available"),
+        "recommendations": str(details.get("recommendations") or "Not available"),
+        "confidence": payload.get("confidence"),
+        "retrieval_candidates": payload.get("retrieval_candidates", []),
+        "patient_context": payload.get("patient_context", {"age": age, "gender": gender}),
+        "training_metrics": payload.get("training_metrics", {}),
+        "selection_mode": payload.get("selection_mode", ""),
+    }
+
+
+def _call_notebook_logistic_regression(
+    symptoms: str, base_url: str, *, age: int | None, gender: str | None
+) -> dict[str, Any]:
+    endpoint = _require_url(base_url, "Logistic Regression") + "/predict/logistic-regression"
+    try:
+        response = requests.post(
+            endpoint,
+            json={"text": symptoms, "age": age, "gender": gender},
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+    except requests.RequestException as error:
+        raise ModelRequestError(f"Could not reach the Logistic Regression API: {error}") from error
+    payload = _json_response(response, "Logistic Regression")
+    if response.status_code >= 400:
+        raise ModelRequestError(_error_message(payload, response, "Logistic Regression"))
     details = payload.get("medical_details") or {}
     return {
         "condition": str(details.get("condition") or payload.get("predicted_condition") or "Not available"),

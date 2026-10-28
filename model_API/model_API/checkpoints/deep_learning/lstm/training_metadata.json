@@ -1,0 +1,36 @@
+{
+  "model_kind": "lstm",
+  "dataset": "C:\\Users\\mwale\\Documents\\Codex\\2026-07-28\\browser-plugin-browser-openai-bundled\\Medical_ChatBot\\dataset\\usable_dataset.csv",
+  "document_count": 412,
+  "train_chunk_count": 613,
+  "validation_chunk_count": 285,
+  "label_count": 412,
+  "checkpoint": "best.pt",
+  "history": [
+    {
+      "held_out_chunk_top_1": 0.0,
+      "held_out_chunk_top_3": 0.010526315789473684,
+      "epoch": 1,
+      "train_loss": 6.029475
+    },
+    {
+      "held_out_chunk_top_1": 0.0,
+      "held_out_chunk_top_3": 0.010526315789473684,
+      "epoch": 2,
+      "train_loss": 5.998077
+    },
+    {
+      "held_out_chunk_top_1": 0.0,
+      "held_out_chunk_top_3": 0.010526315789473684,
+      "epoch": 3,
+      "train_loss": 5.98056
+    },
+    {
+      "held_out_chunk_top_1": 0.0,
+      "held_out_chunk_top_3": 0.014035087719298246,
+      "epoch": 4,
+      "train_loss": 5.952119
+    }
+  ],
+  "warning": "Validation is performed on held-out chunks from source condition documents. It is not independent patient validation or clinical diagnostic accuracy."
+}
